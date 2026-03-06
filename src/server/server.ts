@@ -25,7 +25,7 @@ async function startServer() {
     registerJustLendTools(server);
     registerJustLendPrompts(server);
 
-    console.error("mcp-server-justlend v1.0.0 initialized");
+    console.error("@justlend/mcp-server-justlend v1.0.0 initialized");
     console.error(`Supported networks: ${getSupportedNetworks().join(", ")}`);
     console.error("Server is ready to handle requests");
 

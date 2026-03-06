@@ -38,7 +38,7 @@ async function main() {
   });
 
   app.listen(PORT, () => {
-    console.error(`mcp-server-justlend HTTP server listening on port ${PORT}`);
+    console.error(`@justlend/mcp-server-justlend HTTP server listening on port ${PORT}`);
     console.error(`SSE endpoint: http://localhost:${PORT}/sse`);
     console.error(`Health check: http://localhost:${PORT}/health`);
   });

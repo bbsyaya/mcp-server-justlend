@@ -5,7 +5,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.8+-3178C6)
 ![MCP](https://img.shields.io/badge/MCP-1.22.0+-blue)
 ![JustLend](https://img.shields.io/badge/Protocol-JustLend_DAO-green)
-![npm](https://img.shields.io/badge/npm-mcp--server--justlend-CB3837)
+![npm](https://img.shields.io/badge/npm-@justlend/mcp--server--justlend-CB3837)
 
 A Model Context Protocol (MCP) server that enables AI agents to interact with the **JustLend DAO** lending protocol on TRON. Supply assets, borrow against collateral, manage positions, and analyze DeFi portfolios — all through a unified AI interface.
 
@@ -108,7 +108,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
     "justlend": {
       "type": "stdio",
       "command": "npx",
-      "args": ["tsx", "mcp-server-justlend"],
+      "args": ["tsx", "@justlend/mcp-server-justlend"],
       "env": {
         "TRONGRID_API_KEY": "SET_VIA_SYSTEM_ENV",
         "TRON_PRIVATE_KEY": "SET_VIA_SYSTEM_ENV"
@@ -128,7 +128,7 @@ Add to `.cursor/mcp.json`:
     "justlend": {
       "type": "stdio",
       "command": "npx",
-      "args": ["tsx", "mcp-server-justlend"]
+      "args": ["tsx", "@justlend/mcp-server-justlend"]
       "env": {
         "TRONGRID_API_KEY": "SET_VIA_SYSTEM_ENV",
         "TRON_PRIVATE_KEY": "SET_VIA_SYSTEM_ENV"
