@@ -72,10 +72,12 @@ export const JTRX_MINT_ABI = [
 ];
 
 /**
- * jTRX-specific repayBorrow (payable, no params — callValue carries TRX amount)
+ * jTRX-specific repayBorrow (payable, takes uint256 amount — callValue carries TRX).
+ * The amount param is the repay amount in Sun; use type(uint256).max for full repay.
+ * callValue must be >= the actual repay amount.
  */
 export const JTRX_REPAY_ABI = [
-  { type: "function", name: "repayBorrow", inputs: [], outputs: [], stateMutability: "payable" },
+  { type: "function", name: "repayBorrow", inputs: [{ type: "uint256", name: "repayAmount" }], outputs: [{ type: "uint256" }], stateMutability: "payable" },
 ];
 
 // ============================================================================

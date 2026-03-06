@@ -587,8 +587,8 @@ export function registerJustLendTools(server: McpServer) {
     "exit_market",
     {
       description:
-        "Disable a jToken market as collateral. Will fail if doing so would make your account undercollateralized. " +
-        "Check account_summary first to ensure safety. " +
+        "Disable a jToken market as collateral. " +
+        "Pre-checks: 1) market must have no outstanding borrows; 2) remaining collateral must still cover all borrows. " +
         "Typical cost: ~50,000 energy + ~280 bandwidth.",
       inputSchema: {
         market: z.string().describe("jToken symbol (e.g. 'jUSDT')"),
@@ -602,6 +602,17 @@ export function registerJustLendTools(server: McpServer) {
         const walletAddr = services.getWalletAddress();
         const resourceWarning = await getResourceWarning(walletAddr, "exit_market", false, network, market);
         const result = await services.exitMarket(privateKey, market, network);
+
+        // Check if transaction events contain a Failure
+        const failureEvent = result.events?.find((e: any) => e.name === "Failure");
+        if (failureEvent) {
+          return { content: [{ type: "text", text: JSON.stringify({
+            ...result,
+            ...resourceWarning,
+            error: `Transaction succeeded on-chain but contract returned Failure: error=${failureEvent.params.error}, info=${failureEvent.params.info}, detail=${failureEvent.params.detail}`,
+          }, null, 2) }], isError: true };
+        }
+
         return { content: [{ type: "text", text: JSON.stringify({
           ...result,
           ...resourceWarning,
