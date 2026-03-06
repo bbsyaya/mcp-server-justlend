@@ -105,7 +105,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "justlend": {
+    "mcp-server-justlend": {
       "type": "stdio",
       "command": "npx",
       "args": ["tsx", "@justlend/mcp-server-justlend"],
@@ -125,7 +125,7 @@ Add to `.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "justlend": {
+    "mcp-server-justlend": {
       "type": "stdio",
       "command": "npx",
       "args": ["tsx", "@justlend/mcp-server-justlend"]
