@@ -55,5 +55,13 @@
     "agent",
     "jtoken"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/justlend/mcp-server-justlend.git"
+  },
+  "homepage": "https://github.com/justlend/mcp-server-justlend#readme",
+  "bugs": {
+    "url": "https://github.com/justlend/mcp-server-justlend/issues"
+  },
   "license": "MIT"
 }
