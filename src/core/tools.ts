@@ -7,6 +7,17 @@ import {
 import * as services from "./services/index.js";
 
 /**
+ * Sanitize error messages for MCP client responses.
+ * Strips internal details (contract addresses, node URLs, stack traces)
+ * while preserving user-actionable information.
+ */
+function sanitizeError(error: any): string {
+  const msg = error?.message || String(error);
+  // Remove full URLs that might expose internal infrastructure
+  return msg.replace(/https?:\/\/[^\s,)]+/g, "[redacted-url]");
+}
+
+/**
  * Register all JustLend MCP tools.
  *
  * SECURITY: Private keys are read from environment variables, never passed as tool arguments.
@@ -30,7 +41,7 @@ export function registerJustLendTools(server: McpServer) {
         const address = services.getWalletAddress();
         return { content: [{ type: "text", text: JSON.stringify({ address, message: "This wallet will be used for all JustLend operations" }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -79,7 +90,7 @@ export function registerJustLendTools(server: McpServer) {
           }],
         };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -107,7 +118,7 @@ export function registerJustLendTools(server: McpServer) {
         const data = await services.getMarketData(info, network);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -139,7 +150,7 @@ export function registerJustLendTools(server: McpServer) {
           }],
         };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -158,7 +169,7 @@ export function registerJustLendTools(server: McpServer) {
         const summary = await services.getProtocolSummary(network);
         return { content: [{ type: "text", text: JSON.stringify(summary, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -181,7 +192,7 @@ export function registerJustLendTools(server: McpServer) {
         const data = await services.getMarketDataFromAPI(network);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -200,7 +211,7 @@ export function registerJustLendTools(server: McpServer) {
         const data = await services.getMarketDashboardFromAPI(network);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -220,7 +231,7 @@ export function registerJustLendTools(server: McpServer) {
         const data = await services.getJTokenDetailsFromAPI(jtokenAddr, network);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -247,7 +258,7 @@ export function registerJustLendTools(server: McpServer) {
         const summary = await services.getAccountSummary(userAddress, network);
         return { content: [{ type: "text", text: JSON.stringify(summary, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -271,7 +282,7 @@ export function registerJustLendTools(server: McpServer) {
         const result = await services.checkAllowance(userAddress, market, network);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -292,7 +303,7 @@ export function registerJustLendTools(server: McpServer) {
         const balance = await services.getTRXBalance(userAddress, network);
         return { content: [{ type: "text", text: JSON.stringify({ address: userAddress, balance: `${balance.formatted} TRX` }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -343,7 +354,7 @@ export function registerJustLendTools(server: McpServer) {
           tokenAddress: resolvedAddress,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -364,7 +375,7 @@ export function registerJustLendTools(server: McpServer) {
         const data = await services.getAccountDataFromAPI(userAddress, network);
         return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -427,7 +438,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -457,7 +468,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -485,7 +496,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -516,7 +527,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -549,7 +560,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -578,7 +589,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -618,7 +629,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -649,7 +660,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -676,7 +687,7 @@ export function registerJustLendTools(server: McpServer) {
           ...resourceWarning,
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -718,7 +729,7 @@ export function registerJustLendTools(server: McpServer) {
           ...(resourceCheck.warning ? { resourceWarning: resourceCheck } : {}),
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -743,7 +754,7 @@ export function registerJustLendTools(server: McpServer) {
         const rewards = await services.getMiningRewardsFromAPI(userAddress, network);
         return { content: [{ type: "text", text: JSON.stringify(rewards, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -760,7 +771,7 @@ export function registerJustLendTools(server: McpServer) {
         const config = services.getUSDDMiningConfig();
         return { content: [{ type: "text", text: JSON.stringify(config, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -777,7 +788,7 @@ export function registerJustLendTools(server: McpServer) {
         const config = services.getWBTCMiningConfig();
         return { content: [{ type: "text", text: JSON.stringify(config, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -802,7 +813,7 @@ export function registerJustLendTools(server: McpServer) {
         const proposals = limit > 0 ? data.proposals.slice(0, limit) : data.proposals;
         return { content: [{ type: "text", text: JSON.stringify({ proposals, total: data.total, returned: proposals.length }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -823,7 +834,7 @@ export function registerJustLendTools(server: McpServer) {
         const data = await services.getUserVoteStatus(userAddress, network);
         return { content: [{ type: "text", text: JSON.stringify({ address: userAddress, ...data }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -855,7 +866,7 @@ export function registerJustLendTools(server: McpServer) {
           },
         }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -877,7 +888,7 @@ export function registerJustLendTools(server: McpServer) {
         const data = await services.getLockedVotes(userAddress, proposalId, network);
         return { content: [{ type: "text", text: JSON.stringify({ address: userAddress, ...data }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -898,7 +909,7 @@ export function registerJustLendTools(server: McpServer) {
         const data = await services.checkJSTAllowanceForVoting(userAddress, network);
         return { content: [{ type: "text", text: JSON.stringify({ address: userAddress, ...data }, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -921,7 +932,7 @@ export function registerJustLendTools(server: McpServer) {
         const result = await services.approveJSTForVoting(privateKey, amount, network);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -945,7 +956,7 @@ export function registerJustLendTools(server: McpServer) {
         const result = await services.depositJSTForVotes(privateKey, amount, network);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -968,7 +979,7 @@ export function registerJustLendTools(server: McpServer) {
         const result = await services.withdrawVotesToJST(privateKey, amount, network);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -994,7 +1005,7 @@ export function registerJustLendTools(server: McpServer) {
         const result = await services.castVote(privateKey, proposalId, support, votes, network);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );
@@ -1018,7 +1029,7 @@ export function registerJustLendTools(server: McpServer) {
         const result = await services.withdrawVotesFromProposal(privateKey, proposalId, network);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       } catch (error: any) {
-        return { content: [{ type: "text", text: `Error: ${error.message}` }], isError: true };
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
     },
   );

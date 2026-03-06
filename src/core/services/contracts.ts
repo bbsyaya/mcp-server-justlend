@@ -84,6 +84,9 @@ export async function fetchContractABI(contractAddress: string, network = "mainn
  * Parse and normalise an ABI (string or array) for TronWeb compatibility.
  */
 export function parseABI(abiJson: string | any[]): any[] {
+  if (typeof abiJson === "string" && abiJson.length > 500_000) {
+    throw new Error("ABI JSON string exceeds maximum allowed size (500KB)");
+  }
   const abi: any[] = typeof abiJson === "string" ? JSON.parse(abiJson) : abiJson;
 
   return abi.map((item) => {
@@ -278,6 +281,12 @@ export async function deployContract(
   },
   network = "mainnet",
 ) {
+  if (!process.env.ALLOW_CONTRACT_DEPLOY) {
+    throw new Error(
+      "Contract deployment is disabled. Set the ALLOW_CONTRACT_DEPLOY=true environment variable to enable this feature."
+    );
+  }
+
   const tronWeb = getWallet(privateKey, network);
 
   try {

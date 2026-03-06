@@ -15,26 +15,15 @@
  */
 
 import { getTronWeb, getWallet } from "./clients.js";
-import { getJustLendAddresses } from "../chains.js";
+import { getJustLendAddresses, getApiHost } from "../chains.js";
 import { GOVERNOR_ALPHA_ABI, WJST_ABI, POLY_ABI, TRC20_ABI } from "../abis.js";
+import { utils } from "./utils.js";
 
 const MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 const JST_DECIMALS = 18;
 const TOKEN_PRECISION = 10n ** BigInt(JST_DECIMALS);
 const BLOCK_TIME_MS = 3000; // TRON block time ~3 seconds
 
-// JustLend API endpoints
-const JUSTLEND_API_ENDPOINTS: Record<string, string> = {
-  mainnet: "https://labc.ablesdxd.link",
-  nile: "https://nileapi.justlend.org",
-};
-
-function getApiHost(network: string): string {
-  const n = network.toLowerCase();
-  if (n === "mainnet" || n === "tron" || n === "trx") return JUSTLEND_API_ENDPOINTS.mainnet;
-  if (n === "nile" || n === "testnet") return JUSTLEND_API_ENDPOINTS.nile;
-  return JUSTLEND_API_ENDPOINTS.mainnet;
-}
 
 /**
  * Estimate the current block number by fetching the latest block
@@ -152,7 +141,7 @@ export async function getUserVoteStatus(
 }> {
   const host = getApiHost(network);
   const block = await getCurrentBlock(network);
-  const url = `${host}/justlend/gov/voteStatus?account=${address}&block=${block}`;
+  const url = `${host}/justlend/gov/voteStatus?account=${encodeURIComponent(address)}&block=${block}`;
   const response = await fetch(url);
   const data = await response.json();
 
@@ -266,7 +255,7 @@ export async function approveJSTForVoting(
 
   const approveAmount = amount.toLowerCase() === "max"
     ? MAX_UINT256
-    : (BigInt(Math.floor(parseFloat(amount) * 10 ** JST_DECIMALS))).toString();
+    : utils.parseUnits(amount, JST_DECIMALS).toString();
 
   const token = tronWeb.contract(TRC20_ABI, addresses.jst);
   const txID = await token.methods.approve(addresses.wjst, approveAmount).send();
@@ -291,7 +280,7 @@ export async function depositJSTForVotes(
   const tronWeb = getWallet(privateKey, network);
   const addresses = getJustLendAddresses(network);
 
-  const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** JST_DECIMALS));
+  const amountRaw = utils.parseUnits(amount, JST_DECIMALS);
   const contract = tronWeb.contract(WJST_ABI, addresses.wjst);
   const txID = await contract.methods.deposit(amountRaw.toString()).send();
 
@@ -315,7 +304,7 @@ export async function withdrawVotesToJST(
   const tronWeb = getWallet(privateKey, network);
   const addresses = getJustLendAddresses(network);
 
-  const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** JST_DECIMALS));
+  const amountRaw = utils.parseUnits(amount, JST_DECIMALS);
   const contract = tronWeb.contract(WJST_ABI, addresses.wjst);
   const txID = await contract.methods.withdraw(amountRaw.toString()).send();
 
@@ -343,7 +332,7 @@ export async function castVote(
   const tronWeb = getWallet(privateKey, network);
   const addresses = getJustLendAddresses(network);
 
-  const votesRaw = BigInt(Math.floor(parseFloat(votes) * 10 ** JST_DECIMALS));
+  const votesRaw = utils.parseUnits(votes, JST_DECIMALS);
   const supportValue = support ? 1 : 0;
 
   const contract = tronWeb.contract(GOVERNOR_ALPHA_ABI, addresses.governorAlpha);

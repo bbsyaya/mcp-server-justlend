@@ -1,21 +1,8 @@
 import { getTronWeb } from "./clients.js";
-import { getJustLendAddresses, getAllJTokens, getJTokenInfo, type JTokenInfo } from "../chains.js";
+import { getJustLendAddresses, getAllJTokens, getJTokenInfo, getApiHost, type JTokenInfo } from "../chains.js";
 import { JTOKEN_ABI, COMPTROLLER_ABI, PRICE_ORACLE_ABI, TRC20_ABI } from "../abis.js";
 
 const MANTISSA = 1e18;
-
-// JustLend API endpoints
-const JUSTLEND_API_ENDPOINTS = {
-  mainnet: "https://labc.ablesdxd.link",
-  nile: "https://nileapi.justlend.org",
-};
-
-function getApiHost(network: string): string {
-  const n = network.toLowerCase();
-  if (n === "mainnet" || n === "tron" || n === "trx") return JUSTLEND_API_ENDPOINTS.mainnet;
-  if (n === "nile" || n === "testnet") return JUSTLEND_API_ENDPOINTS.nile;
-  return JUSTLEND_API_ENDPOINTS.mainnet;
-}
 
 export interface AccountPosition {
   jTokenAddress: string;
@@ -253,7 +240,7 @@ export async function getTokenBalance(address: string, tokenAddress: string, net
  */
 export async function getAccountDataFromAPI(address: string, network = "mainnet"): Promise<any> {
   const host = getApiHost(network);
-  const url = `${host}/justlend/account?addr=${address}`;
+  const url = `${host}/justlend/account?addr=${encodeURIComponent(address)}`;
 
   try {
     const response = await fetch(url);

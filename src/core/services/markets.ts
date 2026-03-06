@@ -7,25 +7,12 @@
  */
 
 import { getTronWeb } from "./clients.js";
-import { getJustLendAddresses, getAllJTokens, type JTokenInfo } from "../chains.js";
+import { getJustLendAddresses, getAllJTokens, getApiHost, type JTokenInfo } from "../chains.js";
 import { JTOKEN_ABI, COMPTROLLER_ABI, PRICE_ORACLE_ABI } from "../abis.js";
 
 // V1 Constants: TRON produces ~1 block per 3 seconds, ~28,800 blocks/day, ~10,512,000 blocks/year
 const BLOCKS_PER_YEAR = 10_512_000;
 const MANTISSA = 1e18;
-
-// JustLend API endpoints
-const JUSTLEND_API_ENDPOINTS = {
-  mainnet: "https://labc.ablesdxd.link",
-  nile: "https://nileapi.justlend.org",
-};
-
-function getApiHost(network: string): string {
-  const n = network.toLowerCase();
-  if (n === "mainnet" || n === "tron" || n === "trx") return JUSTLEND_API_ENDPOINTS.mainnet;
-  if (n === "nile" || n === "testnet") return JUSTLEND_API_ENDPOINTS.nile;
-  return JUSTLEND_API_ENDPOINTS.mainnet;
-}
 
 export interface MarketData {
   symbol: string;
@@ -250,7 +237,7 @@ export async function getMarketDataFromAPI(network = "mainnet"): Promise<any> {
  */
 async function getJTokenDetailFromAPI(jtokenAddr: string, network = "mainnet"): Promise<any> {
   const host = getApiHost(network);
-  const url = `${host}/justlend/markets/jtokenDetails?jtokenAddr=${jtokenAddr}`;
+  const url = `${host}/justlend/markets/jtokenDetails?jtokenAddr=${encodeURIComponent(jtokenAddr)}`;
   try {
     const response = await fetch(url);
     if (!response.ok) return null;
@@ -404,7 +391,7 @@ export async function getMarketDashboardFromAPI(network = "mainnet"): Promise<an
  */
 export async function getJTokenDetailsFromAPI(jtokenAddr: string, network = "mainnet"): Promise<any> {
   const host = getApiHost(network);
-  const url = `${host}/justlend/markets/jtokenDetails?jtokenAddr=${jtokenAddr}`;
+  const url = `${host}/justlend/markets/jtokenDetails?jtokenAddr=${encodeURIComponent(jtokenAddr)}`;
 
   try {
     const response = await fetch(url);

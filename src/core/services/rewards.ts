@@ -14,7 +14,7 @@
  */
 
 import { getTronWeb } from "./clients.js";
-import { getJustLendAddresses } from "../chains.js";
+import { getJustLendAddresses, getApiHost } from "../chains.js";
 
 // Merkle Distributor ABI (simplified)
 const MERKLE_DISTRIBUTOR_ABI = [
@@ -202,13 +202,8 @@ function calculateMiningRewards(apiData: any, address: string, network: string):
  * Calculates rewards using same logic as justlend-app's helper.jsx getGainNewAndOldForMarkets.
  */
 export async function getMiningRewardsFromAPI(address: string, network = "mainnet"): Promise<AllMiningRewards> {
-  const apiEndpoints = {
-    mainnet: "https://labc.ablesdxd.link",
-    nile: "https://nileapi.justlend.org",
-  };
-
-  const host = network.toLowerCase() === "nile" ? apiEndpoints.nile : apiEndpoints.mainnet;
-  const url = `${host}/justlend/account?addr=${address}`;
+  const host = getApiHost(network);
+  const url = `${host}/justlend/account?addr=${encodeURIComponent(address)}`;
 
   try {
     const response = await fetch(url);

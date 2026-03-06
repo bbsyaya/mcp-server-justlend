@@ -16,6 +16,7 @@
 import { getTronWeb, getWallet } from "./clients.js";
 import { getJustLendAddresses, getJTokenInfo, getAllJTokens, type JTokenInfo } from "../chains.js";
 import { JTOKEN_ABI, JTRX_MINT_ABI, COMPTROLLER_ABI, TRC20_ABI, PRICE_ORACLE_ABI } from "../abis.js";
+import { utils } from "./utils.js";
 
 const MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
 
@@ -106,7 +107,7 @@ export async function supply(
 ): Promise<{ txID: string; jTokenSymbol: string; amount: string; message: string }> {
   const info = resolveJToken(jTokenSymbol, network);
   const tronWeb = getWallet(privateKey, network);
-  const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info.underlyingDecimals));
+  const amountRaw = utils.parseUnits(amount, info.underlyingDecimals);
 
   if (info.underlyingSymbol === "TRX" || !info.underlying) {
     // jTRX: mint() is payable, amount via callValue (in Sun)
@@ -143,7 +144,7 @@ export async function withdraw(
 ): Promise<{ txID: string; jTokenSymbol: string; amount: string; message: string }> {
   const info = resolveJToken(jTokenSymbol, network);
   const tronWeb = getWallet(privateKey, network);
-  const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info.underlyingDecimals));
+  const amountRaw = utils.parseUnits(amount, info.underlyingDecimals);
 
   const contract = tronWeb.contract(JTOKEN_ABI, info.address);
   const txID = await contract.methods.redeemUnderlying(amountRaw.toString()).send();
@@ -193,7 +194,7 @@ export async function borrow(
 ): Promise<{ txID: string; jTokenSymbol: string; amount: string; message: string }> {
   const info = resolveJToken(jTokenSymbol, network);
   const tronWeb = getWallet(privateKey, network);
-  const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info.underlyingDecimals));
+  const amountRaw = utils.parseUnits(amount, info.underlyingDecimals);
   const walletAddress = tronWeb.defaultAddress.base58;
 
   // Check borrowing capacity by manually computing collateral breakdown.
@@ -357,7 +358,7 @@ export async function repay(
     // Add a small buffer (0.1%) for accrued interest
     const repayAmount = isMax
       ? borrowBal + borrowBal / 1000n
-      : BigInt(Math.floor(parseFloat(amount) * 10 ** info.underlyingDecimals));
+      : utils.parseUnits(amount, info.underlyingDecimals);
 
     // jTRX repayBorrow(uint256) is payable — callValue carries TRX, uint256 param
     // is the repay amount. Use triggerSmartContract with explicit function signature
@@ -376,7 +377,7 @@ export async function repay(
     const txID = broadcast.txid || broadcast.transaction?.txID || tx.transaction.txID;
     return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} TRX to ${jTokenSymbol}` };
   } else {
-    const repayAmount = isMax ? MAX_UINT256 : BigInt(Math.floor(parseFloat(amount) * 10 ** info.underlyingDecimals)).toString();
+    const repayAmount = isMax ? MAX_UINT256 : utils.parseUnits(amount, info.underlyingDecimals).toString();
     const txID = await contract.methods.repayBorrow(repayAmount).send();
     return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} ${info.underlyingSymbol} to ${jTokenSymbol}` };
   }
@@ -544,9 +545,12 @@ export async function approveUnderlying(
   const tronWeb = getWallet(privateKey, network);
   const token = tronWeb.contract(TRC20_ABI, info.underlying);
 
+  // WARNING: "max" approval grants unlimited spending permission to the jToken contract.
+  // This is convenient but carries risk — if the contract is compromised, all approved tokens
+  // could be drained. Consider approving only the exact amount needed for each operation.
   const approveAmount = amount.toLowerCase() === "max"
     ? MAX_UINT256
-    : BigInt(Math.floor(parseFloat(amount) * 10 ** info.underlyingDecimals)).toString();
+    : utils.parseUnits(amount, info.underlyingDecimals).toString();
 
   const txID = await token.methods.approve(info.address, approveAmount).send();
   return { txID, message: `Approved ${amount === "max" ? "unlimited" : amount} ${info.underlyingSymbol} for ${jTokenSymbol}` };
@@ -975,7 +979,7 @@ export async function estimateLendingEnergy(
     }
 
     case "supply": {
-      const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info!.underlyingDecimals));
+      const amountRaw = utils.parseUnits(amount, info!.underlyingDecimals);
       if (!isTRX && info!.underlying) {
         const approveResult = await estimateApproveStep(
           tronWeb, ownerAddress, info!.underlying, info!.address,
@@ -996,7 +1000,7 @@ export async function estimateLendingEnergy(
     }
 
     case "withdraw": {
-      const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info!.underlyingDecimals)).toString();
+      const amountRaw = utils.parseUnits(amount, info!.underlyingDecimals).toString();
       const r = await sim(info!.address, "redeemUnderlying(uint256)", [{ type: "uint256", value: amountRaw }]);
       steps.push(buildStep("redeemUnderlying", `Withdraw ${amount} ${info!.underlyingSymbol} from ${jTokenSymbol}`, r, "withdraw"));
       break;
@@ -1010,14 +1014,14 @@ export async function estimateLendingEnergy(
     }
 
     case "borrow": {
-      const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info!.underlyingDecimals)).toString();
+      const amountRaw = utils.parseUnits(amount, info!.underlyingDecimals).toString();
       const r = await sim(info!.address, "borrow(uint256)", [{ type: "uint256", value: amountRaw }]);
       steps.push(buildStep("borrow", `Borrow ${amount} ${info!.underlyingSymbol} from ${jTokenSymbol}`, r, "borrow"));
       break;
     }
 
     case "repay": {
-      const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info!.underlyingDecimals));
+      const amountRaw = utils.parseUnits(amount, info!.underlyingDecimals);
       if (!isTRX && info!.underlying) {
         const approveResult = await estimateApproveStep(
           tronWeb, ownerAddress, info!.underlying, info!.address,
@@ -1116,7 +1120,7 @@ export async function simulateOperationResources(
 
     switch (operation) {
       case "supply": {
-        const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info!.underlyingDecimals));
+        const amountRaw = utils.parseUnits(amount, info!.underlyingDecimals);
         if (isTRX) {
           result = await sim(info!.address, "mint()", [], { callValue: amountRaw.toString() });
         } else {
@@ -1125,7 +1129,7 @@ export async function simulateOperationResources(
         break;
       }
       case "withdraw": {
-        const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info!.underlyingDecimals)).toString();
+        const amountRaw = utils.parseUnits(amount, info!.underlyingDecimals).toString();
         result = await sim(info!.address, "redeemUnderlying(uint256)", [{ type: "uint256", value: amountRaw }]);
         break;
       }
@@ -1134,7 +1138,7 @@ export async function simulateOperationResources(
         break;
       }
       case "borrow": {
-        const amountRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info!.underlyingDecimals)).toString();
+        const amountRaw = utils.parseUnits(amount, info!.underlyingDecimals).toString();
         result = await sim(info!.address, "borrow(uint256)", [{ type: "uint256", value: amountRaw }]);
         break;
       }
@@ -1147,7 +1151,7 @@ export async function simulateOperationResources(
           const borrowBal = BigInt(await jToken.methods.borrowBalanceStored(ownerAddress).call());
           repayRaw = borrowBal > 0n ? borrowBal + borrowBal / 1000n : BigInt(10 ** info!.underlyingDecimals);
         } else {
-          repayRaw = BigInt(Math.floor(parseFloat(amount) * 10 ** info!.underlyingDecimals));
+          repayRaw = utils.parseUnits(amount, info!.underlyingDecimals);
         }
         if (isTRX) {
           result = await sim(info!.address, "repayBorrow()", [], { callValue: repayRaw.toString() });

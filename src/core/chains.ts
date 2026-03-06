@@ -347,3 +347,18 @@ export function getAllJTokens(network: string = DEFAULT_NETWORK): JTokenInfo[] {
   const addresses = getJustLendAddresses(network);
   return Object.values(addresses.jTokens);
 }
+
+/**
+ * JustLend API host per network. Centralised to avoid duplication across services.
+ */
+const JUSTLEND_API_HOSTS: Record<string, string> = {
+  mainnet: "https://labc.ablesdxd.link",
+  nile: "https://nileapi.justlend.org",
+};
+
+export function getApiHost(network: string = DEFAULT_NETWORK): string {
+  const n = network.toLowerCase();
+  if (n === "mainnet" || n === "tron" || n === "trx") return JUSTLEND_API_HOSTS.mainnet;
+  if (n === "nile" || n === "testnet") return JUSTLEND_API_HOSTS.nile;
+  return JUSTLEND_API_HOSTS.mainnet;
+}
