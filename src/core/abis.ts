@@ -209,6 +209,173 @@ export const POLY_ABI = [
 ];
 
 // ============================================================================
+// Energy Rental Market Proxy ABI (marketProxyContract)
+// ============================================================================
+export const ENERGY_MARKET_ABI = [
+  // --- Read ---
+  {
+    type: "function", name: "getRentInfo",
+    inputs: [
+      { type: "address", name: "renter" },
+      { type: "address", name: "receiver" },
+      { type: "uint256", name: "resourceType" },
+    ],
+    outputs: [
+      { type: "uint256", name: "securityDeposit" },
+      { type: "uint256", name: "index" },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "rentals",
+    inputs: [
+      { type: "address", name: "renter" },
+      { type: "address", name: "receiver" },
+      { type: "uint256", name: "resourceType" },
+    ],
+    outputs: [{ type: "uint256", name: "rentBalance" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "totalDelegatedOfType",
+    inputs: [{ type: "uint256", name: "resourceType" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "totalFrozenOfType",
+    inputs: [{ type: "uint256", name: "resourceType" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "maxRentableOfType",
+    inputs: [{ type: "uint256", name: "resourceType" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "liquidateThreshold",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "feeRatio",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "minFee",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "rentPaused",
+    inputs: [{ type: "uint256", name: "resourceType" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "usageChargeRatio",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "_rentalRate",
+    inputs: [
+      { type: "uint256", name: "amount" },
+      { type: "uint256", name: "resourceType" },
+    ],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  {
+    type: "function", name: "_stableRate",
+    inputs: [{ type: "uint256", name: "resourceType" }],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+  // --- Write ---
+  {
+    type: "function", name: "rentResource",
+    inputs: [
+      { type: "address", name: "receiver" },
+      { type: "uint256", name: "stakeAmount" },
+      { type: "uint256", name: "resourceType" },
+    ],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function", name: "returnResource",
+    inputs: [
+      { type: "address", name: "renter" },
+      { type: "uint256", name: "stakeAmount" },
+      { type: "uint256", name: "resourceType" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function", name: "returnResourceByReceiver",
+    inputs: [
+      { type: "address", name: "renter" },
+      { type: "uint256", name: "stakeAmount" },
+      { type: "uint256", name: "resourceType" },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+];
+
+// ============================================================================
+// Energy Rate Model ABI (energyRateModelContract)
+// ============================================================================
+export const ENERGY_RATE_MODEL_ABI = [
+  {
+    type: "function", name: "getRentalRate",
+    inputs: [
+      { type: "uint256", name: "totalFrozen" },
+      { type: "uint256", name: "totalDelegated" },
+    ],
+    outputs: [{ type: "uint256" }],
+    stateMutability: "view",
+  },
+];
+
+// ============================================================================
+// sTRX Proxy ABI (staking TRX via JustLend)
+// ============================================================================
+export const STRX_ABI = [
+  // --- Read ---
+  { type: "function", name: "balanceOf", inputs: [{ type: "address", name: "account" }], outputs: [{ type: "uint256" }], stateMutability: "view" },
+  { type: "function", name: "totalSupply", inputs: [], outputs: [{ type: "uint256" }], stateMutability: "view" },
+  // --- Write ---
+  {
+    type: "function", name: "deposit",
+    inputs: [],
+    outputs: [],
+    stateMutability: "payable",
+  },
+  {
+    type: "function", name: "withdraw",
+    inputs: [{ type: "uint256", name: "amount" }],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function", name: "claimAll",
+    inputs: [],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+];
+
+// ============================================================================
 // Interest Rate Model ABI (JumpRateModelV2)
 // ============================================================================
 export const INTEREST_RATE_MODEL_ABI = [

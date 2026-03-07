@@ -49,8 +49,10 @@ export interface JustLendAddresses {
   /** sTRX staking related contracts */
   strx: {
     proxy: string; // sTRX proxy contract
-    market: string; // sTRX market proxy
+    market: string; // sTRX market proxy (energy rental)
   };
+  /** Energy rate model contract for rental rate calculations */
+  energyRateModel: string;
   /** Map of symbol → jToken address */
   jTokens: Record<string, JTokenInfo>;
 }
@@ -110,6 +112,7 @@ export const JUSTLEND_ADDRESSES: Record<TronNetwork, JustLendAddresses> = {
       proxy: "TU3kjFuhtEo42tsCBtfYUAZxoqQ4yuSLQ5",
       market: "TU2MJ5Veik1LRAgjeSzEdvmDYx7mefJZvd",
     },
+    energyRateModel: "TXA2WjFc5f86deJcZZCdbdpkpUTKTA3VDM",
     jTokens: {
       jTRX: {
         address: "TE2RzoSV3wFK99w6J9UnnZ4vLfXYoxvRwP",
@@ -308,6 +311,7 @@ export const JUSTLEND_ADDRESSES: Record<TronNetwork, JustLendAddresses> = {
       proxy: "TJaRfuzcxEKGN8sWrkqRUfg9hARNzNajLS",
       market: "TPNcdjfGLjgxh7wVLv6NuLsAcUTzUuEE55",
     },
+    energyRateModel: "TTestEnergyRateModelNileXXXXXXXXXXX",
     jTokens: {},
   },
 };

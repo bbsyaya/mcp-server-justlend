@@ -1033,4 +1033,398 @@ export function registerJustLendTools(server: McpServer) {
       }
     },
   );
+
+  // ============================================================================
+  // ENERGY RENTAL (Read)
+  // ============================================================================
+
+  server.registerTool(
+    "get_energy_rental_dashboard",
+    {
+      description:
+        "Get JustLend energy rental market dashboard data including TRX price, exchange rate, " +
+        "total APY, energy per TRX, total supply, and other market parameters.",
+      inputSchema: {
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Energy Rental Dashboard", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ network = "mainnet" }) => {
+      try {
+        const dashboard = await services.getEnergyRentalDashboard(network);
+        return { content: [{ type: "text", text: JSON.stringify(dashboard, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_energy_rental_params",
+    {
+      description:
+        "Get on-chain energy rental parameters: liquidation threshold, fee ratio, min fee, " +
+        "total delegated/frozen TRX, max rentable amount, rent paused status, usage charge ratio.",
+      inputSchema: {
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Energy Rental Parameters", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ network = "mainnet" }) => {
+      try {
+        const params = await services.getEnergyRentalParams(network);
+        return { content: [{ type: "text", text: JSON.stringify(params, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "calculate_energy_rental_price",
+    {
+      description:
+        "Calculate the cost to rent a specific amount of energy for a given duration. " +
+        "Returns TRX amount needed, rental rate, fee, total prepayment, security deposit, and daily cost. " +
+        "Use this to estimate costs before renting energy.",
+      inputSchema: {
+        energyAmount: z.number().min(100000).describe("Amount of energy to rent (minimum 100,000)"),
+        durationDays: z.number().min(1).describe("Rental duration in days"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Calculate Energy Rental Price", readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ energyAmount, durationDays, network = "mainnet" }) => {
+      try {
+        const durationSeconds = durationDays * 86400;
+        const estimate = await services.calculateRentalPrice(energyAmount, durationSeconds, network);
+        return { content: [{ type: "text", text: JSON.stringify({
+          ...estimate,
+          durationDays,
+          summary: `Renting ${energyAmount} energy for ${durationDays} days costs ~${estimate.totalPrepayment.toFixed(2)} TRX ` +
+            `(daily: ${estimate.dailyRentalCost.toFixed(2)} TRX, deposit: ${estimate.securityDeposit.toFixed(2)} TRX)`,
+        }, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_energy_rental_rate",
+    {
+      description:
+        "Get the current energy rental rate for a given TRX amount. " +
+        "Returns rental rate, stable rate, and effective rate (max of both).",
+      inputSchema: {
+        trxAmount: z.number().min(0).describe("TRX amount to check rate for (0 for base rate)"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Energy Rental Rate", readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ trxAmount, network = "mainnet" }) => {
+      try {
+        const rate = await services.getRentalRate(trxAmount, network);
+        return { content: [{ type: "text", text: JSON.stringify(rate, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_user_energy_rental_orders",
+    {
+      description:
+        "Get a user's energy rental orders from JustLend. Can filter by role: " +
+        "'renter' (orders where user is renting out), 'receiver' (orders where user receives energy), or 'all'.",
+      inputSchema: {
+        address: z.string().optional().describe("Address to query. Default: configured wallet"),
+        type: z.enum(["renter", "receiver", "all"]).optional().describe("Filter by role. Default: all"),
+        page: z.number().optional().describe("Page number (0-indexed). Default: 0"),
+        pageSize: z.number().optional().describe("Results per page. Default: 10"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "User Energy Rental Orders", readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ address, type = "all", page = 0, pageSize = 10, network = "mainnet" }) => {
+      try {
+        const addr = address || services.getWalletAddress();
+        const orders = await services.getUserRentalOrders(addr, type, page, pageSize, network);
+        return { content: [{ type: "text", text: JSON.stringify(orders, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_energy_rent_info",
+    {
+      description:
+        "Get on-chain energy rental info for a specific renter-receiver pair. " +
+        "Returns security deposit, rent balance, and whether an active rental exists.",
+      inputSchema: {
+        renterAddress: z.string().optional().describe("Renter address. Default: configured wallet"),
+        receiverAddress: z.string().describe("Receiver address"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Energy Rent Info", readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ renterAddress, receiverAddress, network = "mainnet" }) => {
+      try {
+        const renter = renterAddress || services.getWalletAddress();
+        const info = await services.getRentInfo(renter, receiverAddress, network);
+        return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_return_rental_info",
+    {
+      description:
+        "Get information needed to return/cancel an energy rental, including remaining rent, " +
+        "security deposit refund, unrecovered energy amount, and daily rent cost.",
+      inputSchema: {
+        renterAddress: z.string().optional().describe("Renter address. Default: configured wallet"),
+        receiverAddress: z.string().describe("Receiver address"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Return Rental Info", readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ renterAddress, receiverAddress, network = "mainnet" }) => {
+      try {
+        const renter = renterAddress || services.getWalletAddress();
+        const info = await services.getReturnRentalInfo(renter, receiverAddress, network);
+        return { content: [{ type: "text", text: JSON.stringify(info, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  // ============================================================================
+  // ENERGY RENTAL (Write)
+  // ============================================================================
+
+  server.registerTool(
+    "rent_energy",
+    {
+      description:
+        "Rent energy from JustLend for a specified receiver address. " +
+        "Automatically calculates TRX needed based on energy amount and duration. " +
+        "Pre-checks: rental not paused, amount within limits, sufficient TRX balance.",
+      inputSchema: {
+        receiverAddress: z.string().describe("Address that will receive the energy"),
+        energyAmount: z.number().min(100000).describe("Amount of energy to rent (minimum 100,000)"),
+        durationDays: z.number().min(1).describe("Rental duration in days"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Rent Energy", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ receiverAddress, energyAmount, durationDays, network = "mainnet" }) => {
+      try {
+        const privateKey = services.getConfiguredPrivateKey();
+        const durationSeconds = durationDays * 86400;
+        const result = await services.rentEnergy(privateKey, receiverAddress, energyAmount, durationSeconds, network);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "return_energy_rental",
+    {
+      description:
+        "Return (cancel) an active energy rental. As a renter, provide the receiver address. " +
+        "As a receiver, provide the renter address. " +
+        "Pre-checks: active rental must exist between the two addresses.",
+      inputSchema: {
+        counterpartyAddress: z.string().describe("The other party's address (receiver if you are renter, renter if you are receiver)"),
+        endOrderType: z.enum(["renter", "receiver"]).optional().describe("Your role: 'renter' (default) or 'receiver'"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Return Energy Rental", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ counterpartyAddress, endOrderType = "renter", network = "mainnet" }) => {
+      try {
+        const privateKey = services.getConfiguredPrivateKey();
+        const result = await services.returnEnergyRental(privateKey, counterpartyAddress, endOrderType, network);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  // ============================================================================
+  // sTRX STAKING (Read)
+  // ============================================================================
+
+  server.registerTool(
+    "get_strx_dashboard",
+    {
+      description:
+        "Get sTRX staking dashboard data including TRX price, sTRX/TRX exchange rate, " +
+        "total APY, vote APY, total supply, unfreeze delay days, and energy stake per TRX.",
+      inputSchema: {
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "sTRX Dashboard", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    },
+    async ({ network = "mainnet" }) => {
+      try {
+        const dashboard = await services.getStrxDashboard(network);
+        return { content: [{ type: "text", text: JSON.stringify(dashboard, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_strx_account",
+    {
+      description:
+        "Get user's sTRX staking account info including staked amount, income, " +
+        "claimable rewards, withdrawn amount, and rental energy amount.",
+      inputSchema: {
+        address: z.string().optional().describe("Address to query. Default: configured wallet"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "sTRX Account Info", readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ address, network = "mainnet" }) => {
+      try {
+        const addr = address || services.getWalletAddress();
+        const account = await services.getStrxStakeAccount(addr, network);
+        return { content: [{ type: "text", text: JSON.stringify(account, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_strx_balance",
+    {
+      description: "Get the sTRX token balance for an address.",
+      inputSchema: {
+        address: z.string().optional().describe("Address to check. Default: configured wallet"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "sTRX Balance", readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ address, network = "mainnet" }) => {
+      try {
+        const addr = address || services.getWalletAddress();
+        const balance = await services.getStrxBalance(addr, network);
+        return { content: [{ type: "text", text: JSON.stringify(balance, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "check_strx_withdrawal_eligibility",
+    {
+      description:
+        "Check if user has TRX available to withdraw after sTRX unstaking unbonding period. " +
+        "Shows staked amount, claimable rewards, pending/completed unstake rounds, and withdrawal status.",
+      inputSchema: {
+        address: z.string().optional().describe("Address to check. Default: configured wallet"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Check sTRX Withdrawal Eligibility", readOnlyHint: true, destructiveHint: false, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ address, network = "mainnet" }) => {
+      try {
+        const addr = address || services.getWalletAddress();
+        const eligibility = await services.checkWithdrawalEligibility(addr, network);
+        return { content: [{ type: "text", text: JSON.stringify(eligibility, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  // ============================================================================
+  // sTRX STAKING (Write)
+  // ============================================================================
+
+  server.registerTool(
+    "stake_trx_to_strx",
+    {
+      description:
+        "Stake TRX via JustLend to receive sTRX tokens. " +
+        "sTRX earns staking rewards (vote APY + energy rental income). " +
+        "Pre-checks: sufficient TRX balance for staking amount + gas.",
+      inputSchema: {
+        amount: z.number().min(1).describe("Amount of TRX to stake"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Stake TRX to sTRX", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ amount, network = "mainnet" }) => {
+      try {
+        const privateKey = services.getConfiguredPrivateKey();
+        const result = await services.stakeTrxToStrx(privateKey, amount, network);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "unstake_strx",
+    {
+      description:
+        "Unstake sTRX to receive TRX back. " +
+        "Note: unstaked TRX has an unbonding period (typically 14 days) before withdrawal. " +
+        "Pre-checks: sufficient sTRX balance.",
+      inputSchema: {
+        amount: z.number().min(0.000001).describe("Amount of sTRX to unstake"),
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Unstake sTRX", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ amount, network = "mainnet" }) => {
+      try {
+        const privateKey = services.getConfiguredPrivateKey();
+        const result = await services.unstakeStrx(privateKey, amount, network);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
+
+  server.registerTool(
+    "claim_strx_rewards",
+    {
+      description:
+        "Claim all available sTRX staking rewards. " +
+        "Pre-checks: verifies there are claimable rewards before executing.",
+      inputSchema: {
+        network: z.string().optional().describe("Network. Default: mainnet"),
+      },
+      annotations: { title: "Claim sTRX Rewards", readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
+    },
+    async ({ network = "mainnet" }) => {
+      try {
+        const privateKey = services.getConfiguredPrivateKey();
+        const result = await services.claimStrxRewards(privateKey, network);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      } catch (error: any) {
+        return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
+      }
+    },
+  );
 }

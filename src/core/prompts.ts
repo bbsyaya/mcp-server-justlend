@@ -241,6 +241,112 @@ Present as a structured portfolio report with clear sections, numbers, and actio
   );
 
   // ============================================================================
+  // ENERGY RENTAL WORKFLOW
+  // ============================================================================
+  server.registerPrompt(
+    "rent_energy",
+    {
+      description: "Step-by-step guide to safely rent energy from JustLend",
+      argsSchema: {
+        receiverAddress: z.string().describe("Address to receive the energy"),
+        energyAmount: z.string().describe("Amount of energy to rent (e.g. '300000')"),
+        durationDays: z.string().describe("Duration in days (e.g. '7')"),
+        network: z.string().optional().describe("Network (default: mainnet)"),
+      },
+    },
+    ({ receiverAddress, energyAmount, durationDays, network = "mainnet" }) => ({
+      messages: [{
+        role: "user",
+        content: {
+          type: "text",
+          text: `# Rent Energy from JustLend
+
+**Objective**: Rent ${energyAmount} energy for ${durationDays} days to ${receiverAddress} on ${network}.
+
+## Pre-flight Checks
+1. **Wallet**: Call \`get_wallet_address\` to confirm the active wallet.
+2. **Rental Status**: Call \`get_energy_rental_params\` to check:
+   - Is \`rentPaused\` false? (rental must be enabled)
+   - What is the max rentable amount?
+3. **Price Estimate**: Call \`calculate_energy_rental_price\` with energyAmount=${energyAmount}, durationDays=${durationDays} to get:
+   - Total TRX prepayment needed
+   - Security deposit amount
+   - Daily rental cost
+4. **Balance Check**: Call \`get_trx_balance\` to verify sufficient TRX for prepayment + gas (~200 TRX).
+5. **Existing Rental**: Call \`get_energy_rent_info\` with receiverAddress='${receiverAddress}' to check if there's already an active rental.
+
+## Execute Rental
+6. If all checks pass, call \`rent_energy\` with:
+   - receiverAddress='${receiverAddress}'
+   - energyAmount=${energyAmount}
+   - durationDays=${durationDays}
+
+## Post-Rental Verification
+7. Call \`get_energy_rent_info\` to confirm the rental is active.
+8. Call \`get_user_energy_rental_orders\` to see the new order.
+
+## Report
+- Energy rented and duration
+- Total cost and security deposit
+- Estimated daily rental cost
+- Receiver address confirmed
+
+**Safety**: If rental is paused, balance insufficient, or any check fails, STOP and report the issue.`,
+        },
+      }],
+    }),
+  );
+
+  // ============================================================================
+  // STRX STAKING WORKFLOW
+  // ============================================================================
+  server.registerPrompt(
+    "stake_trx",
+    {
+      description: "Step-by-step guide to stake TRX in JustLend to earn sTRX rewards",
+      argsSchema: {
+        amount: z.string().describe("Amount of TRX to stake"),
+        network: z.string().optional().describe("Network (default: mainnet)"),
+      },
+    },
+    ({ amount, network = "mainnet" }) => ({
+      messages: [{
+        role: "user",
+        content: {
+          type: "text",
+          text: `# Stake TRX in JustLend (sTRX)
+
+**Objective**: Stake ${amount} TRX on ${network} to receive sTRX and earn staking rewards.
+
+## Pre-flight Checks
+1. **Wallet**: Call \`get_wallet_address\` to confirm the active wallet.
+2. **Dashboard**: Call \`get_strx_dashboard\` to check:
+   - Current sTRX/TRX exchange rate
+   - Total APY (vote APY + rental income)
+   - How much sTRX you'll receive for ${amount} TRX
+3. **Balance Check**: Call \`get_trx_balance\` to verify sufficient TRX for staking + gas.
+4. **Current Position**: Call \`get_strx_account\` to see existing staking position.
+
+## Execute Staking
+5. Call \`stake_trx_to_strx\` with amount=${amount}.
+
+## Post-Staking Verification
+6. Call \`get_strx_balance\` to confirm sTRX received.
+7. Call \`get_strx_account\` to see updated staking position.
+
+## Report
+- Amount of TRX staked
+- sTRX received (or estimated)
+- Current APY and estimated annual earnings
+- Note about unstaking: requires unbonding period
+
+**Safety**: If balance is insufficient, STOP and report.`,
+        },
+      }],
+    }),
+  );
+
+  // ============================================================================
   // MARKET COMPARISON
   // ============================================================================
   server.registerPrompt(
