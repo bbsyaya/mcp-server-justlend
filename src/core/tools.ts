@@ -261,8 +261,9 @@ export function registerJustLendTools(server: McpServer) {
     "get_account_summary",
     {
       description:
-        "Get a comprehensive view of a user's JustLend positions: supply balances, borrow balances, " +
-        "collateral status, health factor, liquidation risk, and USD values for each market.",
+        "Get a comprehensive view of a user's JustLend positions (supply, borrow, health factor). " +
+        "IMPORTANT: Returns a snapshot tied to a specific block. " +
+        "You MUST call this again after any transaction (supply, withdraw, etc.) to get updated balances and health factor.",
       inputSchema: {
         address: z.string().describe("TRON address (Base58 T... format) to check. Leave empty to use configured wallet.").optional(),
         network: z.string().optional().describe("Network. Default: mainnet"),
@@ -404,7 +405,8 @@ export function registerJustLendTools(server: McpServer) {
   server.registerTool(
     "get_account_data_from_api",
     {
-      description: "Get user account data from JustLend API. More stable and comprehensive than contract queries. Returns lending positions, balances, mining rewards, health factor, etc.",
+      description: "Get user account data from JustLend API. Returns lending positions, balances, mining rewards, health factor, etc. " +
+        "Note: API data may have a slight delay compared to contract queries. Refresh after transactions for accuracy.",
       inputSchema: {
         address: z.string().describe("TRON address to check. Leave empty to use configured wallet.").optional(),
         network: z.string().optional().describe("Network. Default: mainnet"),

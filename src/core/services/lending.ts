@@ -131,7 +131,7 @@ export async function supply(
       functionName: "mint",
       callValue: amountRaw.toString(),
     }, network);
-    return { txID, jTokenSymbol, amount, message: `Supplied ${amount} TRX to ${jTokenSymbol}` };
+    return { txID, jTokenSymbol, amount, message: `Supplied ${amount} TRX to ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
   } else {
     // Check TRC20 token balance
     const token = tronWeb.contract(TRC20_ABI, info.underlying);
@@ -158,7 +158,7 @@ export async function supply(
       functionName: "mint",
       args: [amountRaw.toString()],
     }, network);
-    return { txID, jTokenSymbol, amount, message: `Supplied ${amount} ${info.underlyingSymbol} to ${jTokenSymbol}` };
+    return { txID, jTokenSymbol, amount, message: `Supplied ${amount} ${info.underlyingSymbol} to ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
   }
 }
 
@@ -206,7 +206,7 @@ export async function withdraw(
     functionName: "redeemUnderlying",
     args: [amountRaw.toString()],
   }, network);
-  return { txID, jTokenSymbol, amount, message: `Withdrew ${amount} ${info.underlyingSymbol} from ${jTokenSymbol}` };
+  return { txID, jTokenSymbol, amount, message: `Withdrew ${amount} ${info.underlyingSymbol} from ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
 }
 
 /**
@@ -236,7 +236,7 @@ export async function withdrawAll(
     functionName: "redeem",
     args: [jTokenBalance.toString()],
   }, network);
-  return { txID, jTokenSymbol, message: `Withdrew all supply from ${jTokenSymbol}` };
+  return { txID, jTokenSymbol, message: `Withdrew all supply from ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
 }
 
 // ============================================================================
@@ -385,7 +385,7 @@ export async function borrow(
     functionName: "borrow",
     args: [amountRaw.toString()],
   }, network);
-  return { txID, jTokenSymbol, amount, message: `Borrowed ${amount} ${info.underlyingSymbol} from ${jTokenSymbol}` };
+  return { txID, jTokenSymbol, amount, message: `Borrowed ${amount} ${info.underlyingSymbol} from ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
 }
 
 // ============================================================================
@@ -461,7 +461,7 @@ export async function repay(
       callValue: repayAmount.toString(),
       feeLimit: 150_000_000,
     }, network);
-    return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} TRX to ${jTokenSymbol}` };
+    return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} TRX to ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
   } else {
     const repayAmount = isMax ? MAX_UINT256 : utils.parseUnits(amount, info.underlyingDecimals).toString();
     const { txID } = await safeSend(privateKey, {
@@ -470,7 +470,7 @@ export async function repay(
       functionName: "repayBorrow",
       args: [repayAmount],
     }, network);
-    return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} ${info.underlyingSymbol} to ${jTokenSymbol}` };
+    return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} ${info.underlyingSymbol} to ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
   }
 }
 

@@ -42,6 +42,12 @@ export interface AccountSummary {
   healthFactor: string;
   /** Net APY estimate (weighted average of supply APY minus borrow APY) */
   collateralMarkets: string[];
+  /** Block number at time of query */
+  blockNumber: number;
+  /** Block timestamp at time of query */
+  blockTimestamp: number;
+  /** ISO timestamp for human readability */
+  lastUpdated: string;
 }
 
 function formatUnits(raw: bigint, decimals: number): string {
@@ -167,6 +173,11 @@ export async function getAccountSummary(userAddress: string, network = "mainnet"
     }
   }
 
+  // Get current block for freshness tracking
+  const currentBlock = await tronWeb.trx.getCurrentBlock();
+  const blockNumber = currentBlock.block_header.raw_data.number;
+  const blockTimestamp = currentBlock.block_header.raw_data.timestamp;
+
   return {
     address: userAddress,
     network,
@@ -177,6 +188,9 @@ export async function getAccountSummary(userAddress: string, network = "mainnet"
     shortfallUSD: shortfallUSD.toFixed(2),
     healthFactor,
     collateralMarkets: assetsIn,
+    blockNumber,
+    blockTimestamp,
+    lastUpdated: new Date(blockTimestamp).toISOString(),
   };
 }
 

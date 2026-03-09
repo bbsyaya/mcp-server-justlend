@@ -48,9 +48,10 @@ export function registerJustLendPrompts(server: McpServer) {
 6. Call \`supply\` with market='${market}', amount='${amount}'.
 
 ## Post-Supply Verification
-7. Call \`get_account_summary\` to verify:
-   - New supply balance in ${market}
-   - Updated health factor
+7. **CRITICAL**: Call \`get_account_summary\` immediately to refresh your context with:
+   - Updated supply balance in ${market}
+   - New health factor
+   - Current block number and timestamp
 
 ## Report
 Provide a summary:
@@ -112,10 +113,11 @@ Provide a summary:
 5. Call \`borrow\` with market='${market}', amount='${amount}'.
 
 ## Post-Borrow Verification
-6. Call \`get_account_summary\` to confirm:
+6. **CRITICAL**: Call \`get_account_summary\` immediately to refresh your context with:
    - New borrow balance
    - Updated health factor
    - Remaining borrowing capacity
+   - Current block number and timestamp
 
 ## Report
 - Amount borrowed and annual interest cost
@@ -165,9 +167,10 @@ Provide a summary:
 5. Call \`repay\` with market='${market}', amount='${amount}'.
 
 ## Verification
-6. Call \`get_account_summary\` to confirm:
+6. **CRITICAL**: Call \`get_account_summary\` immediately to refresh your context with:
    - Reduced borrow balance
    - Improved health factor
+   - Current block number and timestamp
 
 ## Report
 - Amount repaid
