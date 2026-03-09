@@ -187,7 +187,7 @@ export async function checkAllowance(
   userAddress: string,
   jTokenSymbol: string,
   network = "mainnet",
-): Promise<{ allowance: string; allowanceUnit: string; hasApproval: boolean; underlyingAddress: string; jTokenAddress: string }> {
+): Promise<{ allowance: string; allowanceRaw: string; allowanceUnit: string; decimals: number; hasApproval: boolean; allowanceNote: string; underlyingAddress: string; jTokenAddress: string }> {
   const tronWeb = getTronWeb(network);
   const info = getJTokenInfo(jTokenSymbol, network);
   if (!info) throw new Error(`Unknown jToken: ${jTokenSymbol}`);
@@ -200,8 +200,11 @@ export async function checkAllowance(
 
   return {
     allowance: formatted,
+    allowanceRaw: allowance.toString(),
     allowanceUnit: info.underlyingSymbol,
+    decimals: info.underlyingDecimals,
     hasApproval: allowance > 0n,
+    allowanceNote: `Allowance is ${formatted} ${info.underlyingSymbol} (human-readable, decimals already applied). Compare directly with the amount you want to supply/repay.`,
     underlyingAddress: info.underlying,
     jTokenAddress: info.address,
   };

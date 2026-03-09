@@ -5,6 +5,7 @@ import {
   getSupportedNetworks, getNetworkConfig,
 } from "./chains.js";
 import * as services from "./services/index.js";
+import { utils } from "./services/utils.js";
 
 /**
  * Sanitize error messages for MCP client responses.
@@ -289,16 +290,35 @@ export function registerJustLendTools(server: McpServer) {
         "Compare it directly with the amount the user wants to supply/repay. 'allowanceUnit' indicates the token symbol.",
       inputSchema: {
         market: z.string().describe("jToken symbol (e.g. 'jUSDT')"),
+        amount: z.string().optional().describe("Amount to check sufficiency against (human-readable, e.g. '0.5'). If provided, returns whether allowance is sufficient."),
         address: z.string().optional().describe("Address to check. Default: configured wallet"),
         network: z.string().optional().describe("Network. Default: mainnet"),
       },
       annotations: { title: "Check Allowance", readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     },
-    async ({ market, address, network = "mainnet" }) => {
+    async ({ market, amount, address, network = "mainnet" }) => {
       try {
         const userAddress = address || services.getWalletAddress();
         const result = await services.checkAllowance(userAddress, market, network);
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+
+        let sufficiency = {};
+        if (amount) {
+          const info = getJTokenInfo(market, network);
+          const decimals = info?.underlyingDecimals ?? 6;
+          const allowanceRaw = BigInt(result.allowanceRaw);
+          const requiredRaw = utils.parseUnits(amount, decimals);
+
+          const isSufficient = allowanceRaw >= requiredRaw;
+          sufficiency = {
+            requiredAmount: amount,
+            isSufficient,
+            message: isSufficient
+              ? `Allowance of ${result.allowance} ${result.allowanceUnit} is sufficient for ${amount} ${result.allowanceUnit}. No approve needed.`
+              : `Allowance of ${result.allowance} ${result.allowanceUnit} is NOT sufficient for ${amount} ${result.allowanceUnit}. Please call approve_underlying first.`,
+          };
+        }
+
+        return { content: [{ type: "text", text: JSON.stringify({ ...result, ...sufficiency }, null, 2) }] };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -363,14 +383,18 @@ export function registerJustLendTools(server: McpServer) {
         }
 
         const result = await services.getTokenBalance(userAddress, resolvedAddress, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          address: userAddress,
-          balance: result.balance,
-          balanceNote: "This balance is already in human-readable token units (decimals already applied). Do not divide again.",
-          symbol: result.symbol,
-          decimals: result.decimals,
-          tokenAddress: resolvedAddress,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              address: userAddress,
+              balance: result.balance,
+              balanceNote: "This balance is already in human-readable token units (decimals already applied). Do not divide again.",
+              symbol: result.symbol,
+              decimals: result.decimals,
+              tokenAddress: resolvedAddress,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -453,27 +477,37 @@ export function registerJustLendTools(server: McpServer) {
         // For TRC20 markets, check allowance first and inform user
         if (!isTRX) {
           const allowanceResult = await services.checkAllowance(walletAddr, market, network);
-          const currentAllowance = parseFloat(allowanceResult.allowance);
-          const requiredAmount = parseFloat(amount);
-          if (currentAllowance < requiredAmount) {
+          const decimals = info?.underlyingDecimals ?? 6;
+          const currentAllowanceRaw = BigInt(allowanceResult.allowanceRaw);
+          const requiredAmountRaw = utils.parseUnits(amount, decimals);
+
+          if (currentAllowanceRaw < requiredAmountRaw) {
             const underlyingSymbol = info?.underlyingSymbol ?? market;
-            return { content: [{ type: "text", text: JSON.stringify({
-              status: "approval_required",
-              market,
-              amount,
-              currentAllowance: allowanceResult.allowance,
-              hasApproval: allowanceResult.hasApproval,
-              message: `Current ${underlyingSymbol} allowance is ${allowanceResult.allowance}. You need to approve at least ${amount} ${underlyingSymbol} before supplying. Please call approve_underlying first.`,
-            }, null, 2) }] };
+            return {
+              content: [{
+                type: "text", text: JSON.stringify({
+                  status: "approval_required",
+                  market,
+                  amount,
+                  currentAllowance: allowanceResult.allowance,
+                  hasApproval: allowanceResult.hasApproval,
+                  message: `Current ${underlyingSymbol} allowance is ${allowanceResult.allowance}. You need to approve at least ${amount} ${underlyingSymbol} before supplying. Please call approve_underlying first.`,
+                }, null, 2)
+              }]
+            };
           }
         }
 
         const resourceWarning = await getResourceWarning(walletAddr, "supply", isTRX, network, market, amount);
         const result = await services.supply(privateKey, market, amount, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -500,10 +534,14 @@ export function registerJustLendTools(server: McpServer) {
         const walletAddr = services.getWalletAddress();
         const resourceWarning = await getResourceWarning(walletAddr, "withdraw", false, network, market, amount);
         const result = await services.withdraw(privateKey, market, amount, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -528,10 +566,14 @@ export function registerJustLendTools(server: McpServer) {
         const walletAddr = services.getWalletAddress();
         const resourceWarning = await getResourceWarning(walletAddr, "withdraw_all", false, network, market);
         const result = await services.withdrawAll(privateKey, market, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -559,10 +601,14 @@ export function registerJustLendTools(server: McpServer) {
         const walletAddr = services.getWalletAddress();
         const resourceWarning = await getResourceWarning(walletAddr, "borrow", false, network, market, amount);
         const result = await services.borrow(privateKey, market, amount, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -594,27 +640,37 @@ export function registerJustLendTools(server: McpServer) {
         // For TRC20 markets, check allowance first and inform user (skip for 'max' repay)
         if (!isTRX && amount !== "max") {
           const allowanceResult = await services.checkAllowance(walletAddr, market, network);
-          const currentAllowance = parseFloat(allowanceResult.allowance);
-          const requiredAmount = parseFloat(amount);
-          if (currentAllowance < requiredAmount) {
+          const decimals = info?.underlyingDecimals ?? 6;
+          const currentAllowanceRaw = BigInt(allowanceResult.allowanceRaw);
+          const requiredAmountRaw = utils.parseUnits(amount, decimals);
+
+          if (currentAllowanceRaw < requiredAmountRaw) {
             const underlyingSymbol = info?.underlyingSymbol ?? market;
-            return { content: [{ type: "text", text: JSON.stringify({
-              status: "approval_required",
-              market,
-              amount,
-              currentAllowance: allowanceResult.allowance,
-              hasApproval: allowanceResult.hasApproval,
-              message: `Current ${underlyingSymbol} allowance is ${allowanceResult.allowance}. You need to approve at least ${amount} ${underlyingSymbol} before repaying. Please call approve_underlying first.`,
-            }, null, 2) }] };
+            return {
+              content: [{
+                type: "text", text: JSON.stringify({
+                  status: "approval_required",
+                  market,
+                  amount,
+                  currentAllowance: allowanceResult.allowance,
+                  hasApproval: allowanceResult.hasApproval,
+                  message: `Current ${underlyingSymbol} allowance is ${allowanceResult.allowance}. You need to approve at least ${amount} ${underlyingSymbol} before repaying. Please call approve_underlying first.`,
+                }, null, 2)
+              }]
+            };
           }
         }
 
         const resourceWarning = await getResourceWarning(walletAddr, "repay", isTRX, network, market, amount);
         const result = await services.repay(privateKey, market, amount, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -640,10 +696,14 @@ export function registerJustLendTools(server: McpServer) {
         const walletAddr = services.getWalletAddress();
         const resourceWarning = await getResourceWarning(walletAddr, "enter_market", false, network, market);
         const result = await services.enterMarket(privateKey, market, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -673,17 +733,25 @@ export function registerJustLendTools(server: McpServer) {
         // Check if transaction events contain a Failure
         const failureEvent = result.events?.find((e: any) => e.name === "Failure");
         if (failureEvent) {
-          return { content: [{ type: "text", text: JSON.stringify({
-            ...result,
-            ...resourceWarning,
-            error: `Transaction succeeded on-chain but contract returned Failure: error=${failureEvent.params.error}, info=${failureEvent.params.info}, detail=${failureEvent.params.detail}`,
-          }, null, 2) }], isError: true };
+          return {
+            content: [{
+              type: "text", text: JSON.stringify({
+                ...result,
+                ...resourceWarning,
+                error: `Transaction succeeded on-chain but contract returned Failure: error=${failureEvent.params.error}, info=${failureEvent.params.info}, detail=${failureEvent.params.detail}`,
+              }, null, 2)
+            }], isError: true
+          };
         }
 
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -711,10 +779,14 @@ export function registerJustLendTools(server: McpServer) {
         const walletAddr = services.getWalletAddress();
         const resourceWarning = await getResourceWarning(walletAddr, "approve", false, network, market, amount);
         const result = await services.approveUnderlying(privateKey, market, amount, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -738,10 +810,14 @@ export function registerJustLendTools(server: McpServer) {
         const walletAddr = services.getWalletAddress();
         const resourceWarning = await getResourceWarning(walletAddr, "claim_rewards", false, network);
         const result = await services.claimRewards(privateKey, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...resourceWarning,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...resourceWarning,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -780,10 +856,14 @@ export function registerJustLendTools(server: McpServer) {
         const result = await services.estimateLendingEnergy(operation, market, amount, userAddress, network, spender);
         // Also check resource sufficiency
         const resourceCheck = await services.checkResourceSufficiency(userAddress, result.totalEnergy, result.totalBandwidth, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...result,
-          ...(resourceCheck.warning ? { resourceWarning: resourceCheck } : {}),
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...result,
+              ...(resourceCheck.warning ? { resourceWarning: resourceCheck } : {}),
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -911,16 +991,20 @@ export function registerJustLendTools(server: McpServer) {
       try {
         const userAddress = address || services.getWalletAddress();
         const data = await services.getVoteInfo(userAddress, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          address: userAddress,
-          ...data,
-          explanation: {
-            jstBalance: "JST tokens in wallet (not yet deposited for voting)",
-            surplusVotes: "Available votes that can be cast on proposals",
-            totalVote: "Total votes deposited (WJST balance)",
-            castVote: "Votes currently locked in active proposals",
-          },
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              address: userAddress,
+              ...data,
+              explanation: {
+                jstBalance: "JST tokens in wallet (not yet deposited for voting)",
+                surplusVotes: "Available votes that can be cast on proposals",
+                totalVote: "Total votes deposited (WJST balance)",
+                castVote: "Votes currently locked in active proposals",
+              },
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -1180,15 +1264,19 @@ export function registerJustLendTools(server: McpServer) {
               additionalSeconds,
               network,
             );
-            return { content: [{ type: "text", text: JSON.stringify({
-              ...estimate,
-              isRenewal: true,
-              durationHours: estimate.durationSeconds / 3600,
-              summary: `Renewal: adding ${energyAmount} energy costs ~${estimate.renewalPrepayment.toFixed(2)} TRX ` +
-                `(existing deposit: ${estimate.existingSecurityDeposit.toFixed(2)} TRX, ` +
-                `existing TRX: ${estimate.existingTrxAmount.toFixed(2)}, ` +
-                `total TRX after: ${estimate.totalTrxAmount})`,
-            }, null, 2) }] };
+            return {
+              content: [{
+                type: "text", text: JSON.stringify({
+                  ...estimate,
+                  isRenewal: true,
+                  durationHours: estimate.durationSeconds / 3600,
+                  summary: `Renewal: adding ${energyAmount} energy costs ~${estimate.renewalPrepayment.toFixed(2)} TRX ` +
+                    `(existing deposit: ${estimate.existingSecurityDeposit.toFixed(2)} TRX, ` +
+                    `existing TRX: ${estimate.existingTrxAmount.toFixed(2)}, ` +
+                    `total TRX after: ${estimate.totalTrxAmount})`,
+                }, null, 2)
+              }]
+            };
           }
         }
 
@@ -1198,13 +1286,17 @@ export function registerJustLendTools(server: McpServer) {
         }
         const durationSeconds = durationHours * 3600;
         const estimate = await services.calculateRentalPrice(energyAmount, durationSeconds, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...estimate,
-          isRenewal: false,
-          durationHours,
-          summary: `Renting ${energyAmount} energy for ${durationHours} hours costs ~${estimate.totalPrepayment.toFixed(2)} TRX ` +
-            `(daily: ${estimate.dailyRentalCost.toFixed(2)} TRX, deposit: ${estimate.securityDeposit.toFixed(2)} TRX)`,
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...estimate,
+              isRenewal: false,
+              durationHours,
+              summary: `Renting ${energyAmount} energy for ${durationHours} hours costs ~${estimate.totalPrepayment.toFixed(2)} TRX ` +
+                `(daily: ${estimate.dailyRentalCost.toFixed(2)} TRX, deposit: ${estimate.securityDeposit.toFixed(2)} TRX)`,
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }
@@ -1429,10 +1521,14 @@ export function registerJustLendTools(server: McpServer) {
       try {
         const addr = address || services.getWalletAddress();
         const balance = await services.getStrxBalance(addr, network);
-        return { content: [{ type: "text", text: JSON.stringify({
-          ...balance,
-          raw: balance.raw.toString(),
-        }, null, 2) }] };
+        return {
+          content: [{
+            type: "text", text: JSON.stringify({
+              ...balance,
+              raw: balance.raw.toString(),
+            }, null, 2)
+          }]
+        };
       } catch (error: any) {
         return { content: [{ type: "text", text: `Error: ${sanitizeError(error)}` }], isError: true };
       }

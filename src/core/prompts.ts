@@ -41,8 +41,8 @@ export function registerJustLendPrompts(server: McpServer) {
    - What is the \`collateralFactor\`?
 
 ## Approval (TRC20 only, skip for jTRX)
-4. Call \`check_allowance\` for ${market}.
-5. If allowance is insufficient, call \`approve_underlying\` for ${market} with amount='max'.
+4. Call \`check_allowance\` for ${market} passing amount='${amount}' to explicitly check sufficiency.
+5. If the returned \`isSufficient\` is false, call \`approve_underlying\` for ${market} with amount='max'.
 
 ## Execute Supply
 6. Call \`supply\` with market='${market}', amount='${amount}'.
@@ -158,8 +158,8 @@ Provide a summary:
    - TRC20: Call \`get_token_balance\` for the underlying
 
 ## Approval (TRC20 only, skip for jTRX)
-3. Call \`check_allowance\` for ${market}.
-4. If insufficient, call \`approve_underlying\` for ${market}.
+3. Call \`check_allowance\` for ${market} passing amount='${amount}' to explicitly check sufficiency.
+4. If the returned \`isSufficient\` is false, call \`approve_underlying\` for ${market}.
 
 ## Execute Repay
 5. Call \`repay\` with market='${market}', amount='${amount}'.
