@@ -284,7 +284,9 @@ export function registerJustLendTools(server: McpServer) {
     {
       description:
         "Check if the underlying TRC20 token has been approved for a jToken market. " +
-        "Must be approved before supply() or repay() for TRC20 markets. Not needed for jTRX.",
+        "Must be approved before supply() or repay() for TRC20 markets. Not needed for jTRX. " +
+        "The returned 'allowance' is in human-readable token units (e.g. '1' means 1 USDT, not 1 raw unit). " +
+        "Compare it directly with the amount the user wants to supply/repay. 'allowanceUnit' indicates the token symbol.",
       inputSchema: {
         market: z.string().describe("jToken symbol (e.g. 'jUSDT')"),
         address: z.string().optional().describe("Address to check. Default: configured wallet"),

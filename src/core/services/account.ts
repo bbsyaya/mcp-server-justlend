@@ -187,7 +187,7 @@ export async function checkAllowance(
   userAddress: string,
   jTokenSymbol: string,
   network = "mainnet",
-): Promise<{ allowance: string; hasApproval: boolean; underlyingAddress: string; jTokenAddress: string }> {
+): Promise<{ allowance: string; allowanceUnit: string; hasApproval: boolean; underlyingAddress: string; jTokenAddress: string }> {
   const tronWeb = getTronWeb(network);
   const info = getJTokenInfo(jTokenSymbol, network);
   if (!info) throw new Error(`Unknown jToken: ${jTokenSymbol}`);
@@ -196,9 +196,11 @@ export async function checkAllowance(
   const token = tronWeb.contract(TRC20_ABI, info.underlying);
   const raw = await token.methods.allowance(userAddress, info.address).call();
   const allowance = BigInt(raw);
+  const formatted = formatUnits(allowance, info.underlyingDecimals);
 
   return {
-    allowance: formatUnits(allowance, info.underlyingDecimals),
+    allowance: formatted,
+    allowanceUnit: info.underlyingSymbol,
     hasApproval: allowance > 0n,
     underlyingAddress: info.underlying,
     jTokenAddress: info.address,
