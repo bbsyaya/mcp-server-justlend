@@ -426,13 +426,14 @@ Provide a top-3 recommendation with reasoning.`,
 
 ## Pre-flight Checks
 1. Call the \`get_proposal_list\` tool to fetch recent proposals. Filter for those with state "Active" (state: 1).
-2. Note: Some older proposals may lack detailed titles (marked as "Details maintained in frontend"). If the user asks about them, gently explain that the detailed text is maintained locally in the web client and cannot be fully retrieved by the API, but they can still be voted on by referencing the Proposal ID.
-3. Call the \`get_wallet_address\` tool to get the active wallet.
-4. Call the \`get_vote_info\` tool to check the user's available voting power (surplusVotes).
+2. The tool now returns both \`title\` and \`content\` for most proposals (including summaries for historically hardcoded ones). Use this information to explain the active proposals clearly to the user.
+3. Note: If a very early proposal (e.g., ID 1-6) specifically returns "Details maintained in frontend." in its content, gently explain to the user that the exact text is unavailable via API, but they can still vote on it using its Proposal ID.
+4. Call the \`get_wallet_address\` tool to get the active wallet.
+5. Call the \`get_vote_info\` tool to check the user's available voting power (surplusVotes).
 
 ## Report
 Provide a summary:
-- List of Active proposals (ID, Title, Current For/Against votes)
+- List of Active proposals (ID, Title, Brief summary of content, Current For/Against votes)
 - User's available voting power (WJST)
 - Ask if the user wants to cast a vote or needs to deposit JST for more voting power.`,
         },
