@@ -410,7 +410,7 @@ export async function repay(
       const needed = repayRaw + repayGasSun;
       if (BigInt(balanceSun) < needed) {
         throw new Error(
-          `Insufficient TRX balance for repayment. Have ${(Number(balanceSun) / 1e6).toFixed(2)} TRX, need ~${(Number(needed) / 1e6).toFixed(2)} TRX (repay + estimated gas)`,
+          `Insufficient TRX balance for repayment. Have ${(Number(balanceSun) / 1e6).toFixed(2)} TRX, need ~${(Number(needed) / 1e6).toFixed(2)} TRX (repay + estimated gas)`
         );
       }
     } else {
@@ -418,7 +418,7 @@ export async function repay(
       const tokenBal = BigInt(await token.methods.balanceOf(walletAddress).call());
       if (tokenBal < repayRaw) {
         throw new Error(
-          `Insufficient ${info.underlyingSymbol} balance for repayment. Have ${utils.formatUnits(tokenBal.toString(), info.underlyingDecimals)}, need ${amount}`,
+          `Insufficient ${info.underlyingSymbol} balance for repayment. Have ${utils.formatUnits(tokenBal.toString(), info.underlyingDecimals)}, need ${amount}`
         );
       }
     }
@@ -426,15 +426,15 @@ export async function repay(
 
   if (info.underlyingSymbol === "TRX" || !info.underlying) {
     const repayAmount = isMax
-      ? borrowBal + borrowBal / 1000n
+      ? borrowBal + borrowBal / 1000n // 加上极小的利息缓冲
       : utils.parseUnits(amount, info.underlyingDecimals);
 
-    const repayParam = isMax ? MAX_UINT256 : repayAmount.toString();
+    // 💡 修复：TRX 还款不能传 args！函数签名是空的！
     const { txID } = await safeSend(privateKey, {
       address: info.address,
       abi: JTOKEN_ABI,
       functionName: "repayBorrow",
-      args: [repayParam],
+      args: [], // <--- 关键修复：原生 TRX 还款必须为空数组！
       callValue: repayAmount.toString(),
       feeLimit: 150_000_000,
     }, network);
@@ -446,6 +446,7 @@ export async function repay(
       abi: JTOKEN_ABI,
       functionName: "repayBorrow",
       args: [repayAmount],
+      feeLimit: 300_000_000, // 💡 增加能量上限，防止 TRC20 复杂代币模拟溢出
     }, network);
     return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} ${info.underlyingSymbol} to ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
   }

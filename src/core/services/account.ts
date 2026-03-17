@@ -219,9 +219,11 @@ export async function getAccountSummary(userAddress: string, network = "mainnet"
   let healthFactor = "∞";
   if (totalBorrowUSD > 0) {
     if (shortfallUSD > 0) {
-      healthFactor = (totalSupplyUSD / (totalSupplyUSD + shortfallUSD)).toFixed(4);
+      // 出现资不抵债缺口：(总借款 - 缺口) / 总借款
+      healthFactor = ((totalBorrowUSD - shortfallUSD) / totalBorrowUSD).toFixed(4);
     } else {
-      healthFactor = ((totalSupplyUSD + liquidityUSD) / totalSupplyUSD).toFixed(4);
+      // 安全状态：(可用流动性 + 总借款) / 总借款
+      healthFactor = ((liquidityUSD + totalBorrowUSD) / totalBorrowUSD).toFixed(4);
     }
   }
 
