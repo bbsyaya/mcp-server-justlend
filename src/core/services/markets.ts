@@ -19,56 +19,86 @@ export interface MarketData {
   underlyingSymbol: string;
   jTokenAddress: string;
   underlyingAddress: string;
-  // Rates (annualized percentages)
   supplyAPY: number;
   borrowAPY: number;
-  // Totals (in underlying token units)
   totalSupply: string;
   totalBorrows: string;
   totalReserves: string;
   availableLiquidity: string;
-  // Factors
   exchangeRate: string;
-  collateralFactor: number; // percentage, e.g. 75 means 75%
-  reserveFactor: number; // percentage
-  // Status
+  collateralFactor: number;
+  reserveFactor: number;
   isListed: boolean;
   mintPaused: boolean;
   borrowPaused: boolean;
-  // Price
   underlyingPriceUSD: string;
-  // Utilization
-  utilizationRate: number; // percentage
+  utilizationRate: number;
 }
 
-/**
- * Convert per-block rate to APY percentage (V1 calculation).
- * APY = ((1 + ratePerBlock)^blocksPerYear - 1) * 100
- *
- * VERSION: V1 - Uses Compound V2 per-block interest rate model
- */
 function rateToAPY(ratePerBlock: bigint): number {
   const rate = Number(ratePerBlock) / MANTISSA;
   const apy = (Math.pow(1 + rate, BLOCKS_PER_YEAR) - 1) * 100;
-  return Math.round(apy * 100) / 100; // 2 decimals
+  return Math.round(apy * 100) / 100;
 }
 
-/**
- * Format a raw amount using token decimals to a human-readable string.
- */
 function formatUnits(raw: bigint, decimals: number): string {
   const divisor = 10 ** decimals;
   const value = Number(raw) / divisor;
-  // Use enough precision
   if (value > 1e6) return value.toFixed(2);
   if (value > 1) return value.toFixed(6);
   return value.toFixed(decimals);
 }
 
 /**
+ * Fetch asset USD price from API using foolproof math: depositedUSD / underlyingAmount
+ */
+async function fetchPriceFromAPI(jTokenAddress: string, underlyingDecimals: number, network: string): Promise<number> {
+  const tryFetch = async (targetNetwork: string) => {
+    const host = targetNetwork === "nile" ? "https://nileapi.justlend.org" : "https://labc.ablesdxd.link";
+    console.log(`[Price Fallback] Querying market data from API: ${host}...`);
+
+    const resp = await fetch(`${host}/justlend/markets`);
+    const data = await resp.json();
+    if (data.code !== 0 || !data.data || !data.data.jtokenList) throw new Error("Invalid API data");
+
+    const market = data.data.jtokenList.find((m: any) => m.jtokenAddress.toLowerCase() === jTokenAddress.toLowerCase());
+    if (!market) throw new Error(`Market not found in API for address: ${jTokenAddress}`);
+
+    const depositedUSD = Number(market.depositedUSD || 0);
+    const totalSupplyRaw = Number(market.totalSupply || 0);
+    const exchangeRate = Number(market.exchangeRate || 0);
+
+    if (depositedUSD === 0 || totalSupplyRaw === 0 || exchangeRate === 0) return 0;
+
+    // 经典 Compound 数学换算：计算真实的底层代币总数量
+    const underlyingRaw = (totalSupplyRaw * exchangeRate) / 1e18;
+    const underlyingAmount = underlyingRaw / (10 ** underlyingDecimals);
+
+    // 反推美金单价
+    const price = depositedUSD / underlyingAmount;
+    console.log(`[Price Fallback] Success! Derived price for ${market.collateralSymbol} = $${price.toFixed(4)}`);
+    return price;
+  };
+
+  try {
+    return await tryFetch(network);
+  } catch (err: any) {
+    console.warn(`[Price Fallback] API fetch failed for ${network}: ${err.message}`);
+    if (network === "nile") {
+      try {
+        console.log(`[Price Fallback] Engaging ultimate fallback -> querying Mainnet API...`);
+        return await tryFetch("mainnet"); // 终极兜底
+      } catch (mainnetErr: any) {
+        console.warn(`[Price Fallback] Mainnet API fallback also failed: ${mainnetErr.message}`);
+        return 0;
+      }
+    }
+    return 0;
+  }
+}
+
+/**
  * Get full market data for a single jToken market (V1).
- *
- * VERSION: V1 - Queries JustLend V1 contracts using Compound V2 ABI
  */
 export async function getMarketData(jTokenInfo: JTokenInfo, network = "mainnet"): Promise<MarketData> {
   const tronWeb = getTronWeb(network);
@@ -77,7 +107,6 @@ export async function getMarketData(jTokenInfo: JTokenInfo, network = "mainnet")
   const jToken = tronWeb.contract(JTOKEN_ABI, jTokenInfo.address);
   const comptroller = tronWeb.contract(COMPTROLLER_ABI, addresses.comptroller);
 
-  // Batch read calls
   const [
     supplyRatePerBlock,
     borrowRatePerBlock,
@@ -90,7 +119,7 @@ export async function getMarketData(jTokenInfo: JTokenInfo, network = "mainnet")
     marketInfo,
     mintPaused,
     borrowPaused,
-    oracleAddressHex // <--- 动态从代理合约获取真实的 PriceOracle 地址
+    oracleAddressHex
   ] = await Promise.all([
     jToken.methods.supplyRatePerBlock().call(),
     jToken.methods.borrowRatePerBlock().call(),
@@ -106,42 +135,44 @@ export async function getMarketData(jTokenInfo: JTokenInfo, network = "mainnet")
     comptroller.methods.oracle().call(),
   ]);
 
-  // Get price from oracle (使用动态获取的真实地址)
-  let underlyingPriceRaw: bigint;
+  let underlyingPriceRaw = 0n;
+  let priceUSD = 0;
+
   try {
     const realOracleAddress = tronWeb.address.fromHex(oracleAddressHex);
+    console.log(`\n================================`);
+    console.log(`[Oracle Debug] Querying Market: ${jTokenInfo.symbol} on ${network.toUpperCase()}`);
+    console.log(`[Oracle Debug] Real Oracle Address: ${realOracleAddress}`);
+
     const oracle = tronWeb.contract(PRICE_ORACLE_ABI, realOracleAddress);
     underlyingPriceRaw = BigInt(await oracle.methods.getUnderlyingPrice(jTokenInfo.address).call());
-  } catch (err) {
-    console.error(`[Oracle] Failed to fetch price for ${jTokenInfo.symbol}:`, err);
-    underlyingPriceRaw = 0n;
+
+    console.log(`[Oracle Debug] Raw Price from Chain: ${underlyingPriceRaw}`);
+    console.log(`================================\n`);
+  } catch (err: any) {
+    console.warn(`[Oracle Debug] Failed to fetch on-chain price: ${err.message}`);
+  }
+
+  // 价格决策逻辑
+  if (underlyingPriceRaw > 0n) {
+    const priceScale = 10 ** (36 - jTokenInfo.underlyingDecimals);
+    priceUSD = Number(underlyingPriceRaw) / priceScale;
+  } else {
+    console.log(`[Oracle Debug] On-chain price is 0, triggering API fallback logic...`);
+    priceUSD = await fetchPriceFromAPI(jTokenInfo.address, jTokenInfo.underlyingDecimals, network);
   }
 
   const supplyAPY = rateToAPY(BigInt(supplyRatePerBlock));
   const borrowAPY = rateToAPY(BigInt(borrowRatePerBlock));
-
   const totalBorrowsBig = BigInt(totalBorrowsRaw);
   const cashBig = BigInt(cashRaw);
   const totalSupplyBig = BigInt(totalSupplyRaw);
-
-  // Utilization = borrows / (cash + borrows - reserves)
   const totalReservesBig = BigInt(totalReservesRaw);
   const denominator = cashBig + totalBorrowsBig - totalReservesBig;
-  const utilizationRate = denominator > 0n
-    ? Math.round(Number(totalBorrowsBig * 10000n / denominator)) / 100
-    : 0;
-
+  const utilizationRate = denominator > 0n ? Math.round(Number(totalBorrowsBig * 10000n / denominator)) / 100 : 0;
   const collateralFactor = Number(BigInt(marketInfo.collateralFactorMantissa)) / MANTISSA * 100;
   const reserveFactor = Number(BigInt(reserveFactorRaw)) / MANTISSA * 100;
-
-  // Exchange rate: how many underlying per 1 jToken
-  // exchangeRate = (cash + totalBorrows - totalReserves) / totalSupply
-  // Stored as mantissa with 18 + underlyingDecimals - jTokenDecimals precision
   const exchangeRateNum = Number(BigInt(exchangeRateRaw)) / MANTISSA;
-
-  // Price: oracle returns price scaled to 36 - underlyingDecimals
-  const priceScale = 10 ** (36 - jTokenInfo.underlyingDecimals);
-  const priceUSD = Number(underlyingPriceRaw) / priceScale;
 
   return {
     symbol: jTokenInfo.symbol,
