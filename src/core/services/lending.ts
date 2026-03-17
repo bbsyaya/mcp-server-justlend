@@ -9,7 +9,7 @@
 import { getTronWeb, getWallet } from "./clients.js";
 import { safeSend } from "./contracts.js";
 import { getJustLendAddresses, getJTokenInfo, getAllJTokens, type JTokenInfo } from "../chains.js";
-import { JTOKEN_ABI, JTRX_MINT_ABI, COMPTROLLER_ABI, TRC20_ABI, PRICE_ORACLE_ABI } from "../abis.js";
+import { JTOKEN_ABI, JTRX_MINT_ABI, JTRX_REPAY_ABI, COMPTROLLER_ABI, TRC20_ABI, PRICE_ORACLE_ABI } from "../abis.js";
 import { utils } from "./utils.js";
 
 const MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
@@ -434,7 +434,7 @@ export async function repay(
     // 同时传参数和 callValue
     const { txID } = await safeSend(privateKey, {
       address: info.address,
-      abi: JTOKEN_ABI,
+      abi: JTRX_REPAY_ABI,                // ✅ 使用 payable ABI，与合约签名匹配
       functionName: "repayBorrow",
       args: [repayAmount.toString()],     // ✅ 传金额参数，与 dapp 前端一致
       callValue: repayAmount.toString(),   // 同时通过 callValue 发送 TRX

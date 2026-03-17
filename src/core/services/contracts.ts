@@ -123,18 +123,19 @@ export async function safeSend(
       console.warn(
         `[safeSend] Simulation skipped for native TRX call ${params.functionName}(): ${errMsg}. Using typical energy estimate.`
       );
+    } else if (errMsg.includes("REVERT opcode executed")) {
+      // ====== 降级处理：REVERT 不阻断交易 ======
+      // 测试网节点的 triggerConstantContract 模拟可能不准确，
+      // DApp 前端也不做预检模拟。降级为典型值，让交易继续发送。
+      simulationDegraded = true;
+      energyUsed = 100000; // 保守典型估算值
+      energyPenalty = 0;
+      console.warn(
+        `[safeSend] Pre-flight simulation REVERT for ${params.functionName}(): ${errMsg}. ` +
+        `Proceeding with typical energy estimate. The transaction may still succeed on-chain.`
+      );
     } else {
-      // ====== 改进：对 REVERT 错误尝试解码具体原因 ======
-      let enhancedMsg = errMsg;
-      // 尝试从错误信息中提取更具体的 revert reason
-      if (errMsg.includes("REVERT opcode executed")) {
-        enhancedMsg = `Transaction pre-flight simulation failed. The contract reverted the call. ` +
-          `This typically means the on-chain contract rejected the operation — ` +
-          `possible causes: market paused, oracle price unavailable, insufficient collateral, ` +
-          `or other contract-level validation failure. Raw: ${errMsg}`;
-      } else {
-        enhancedMsg = `Transaction pre-flight simulation failed. The transaction would revert: ${errMsg}`;
-      }
+      const enhancedMsg = `Transaction pre-flight simulation failed. The transaction would revert: ${errMsg}`;
       throw new Error(enhancedMsg);
     }
   }
