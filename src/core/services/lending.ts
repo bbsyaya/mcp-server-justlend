@@ -426,16 +426,18 @@ export async function repay(
 
   if (info.underlyingSymbol === "TRX" || !info.underlying) {
     const repayAmount = isMax
-      ? borrowBal + borrowBal / 1000n // 加上极小的利息缓冲
+      ? borrowBal + borrowBal / 1000n
       : utils.parseUnits(amount, info.underlyingDecimals);
 
-    // 💡 修复：TRX 还款不能传 args！函数签名是空的！
+    // ✅ 修正：TRX 还款与 dapp 前端一致
+    // dapp 使用 repayBorrow(uint256) + parameters: [amount] + callValue: amount
+    // 同时传参数和 callValue
     const { txID } = await safeSend(privateKey, {
       address: info.address,
       abi: JTOKEN_ABI,
       functionName: "repayBorrow",
-      args: [], // <--- 关键修复：原生 TRX 还款必须为空数组！
-      callValue: repayAmount.toString(),
+      args: [repayAmount.toString()],     // ✅ 传金额参数，与 dapp 前端一致
+      callValue: repayAmount.toString(),   // 同时通过 callValue 发送 TRX
       feeLimit: 150_000_000,
     }, network);
     return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} TRX to ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
@@ -446,7 +448,7 @@ export async function repay(
       abi: JTOKEN_ABI,
       functionName: "repayBorrow",
       args: [repayAmount],
-      feeLimit: 300_000_000, // 💡 增加能量上限，防止 TRC20 复杂代币模拟溢出
+      feeLimit: 300_000_000,
     }, network);
     return { txID, jTokenSymbol, amount: isMax ? "max" : amount, message: `Repaid ${isMax ? "all" : amount} ${info.underlyingSymbol} to ${jTokenSymbol}. IMPORTANT: Please call get_account_summary to see your updated position and health factor.` };
   }
